@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 typedef struct no
 {
     int valor;
@@ -134,3 +135,11 @@ No* inserir(No *raiz, int x){
 
     return raiz;
 }
+
+No* buscar(){}
+
+No* remover(){}
+
+No* percorrer(){}
+
+No* alturaeFB(){}
