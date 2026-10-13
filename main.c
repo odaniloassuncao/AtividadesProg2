@@ -1,20 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/*
- * Arvore Rubro-Negra (Red-Black Tree)
- *
- * Propriedades:
- *  1. Todo no e vermelho ou preto.
- *  2. A raiz e preta.
- *  3. Toda folha (NIL) e preta.
- *  4. Filhos de um no vermelho sao pretos (nao existem dois vermelhos seguidos).
- *  5. Todo caminho de um no ate as folhas NIL tem o mesmo numero de nos pretos.
- *
- * Valores repetidos sao ignorados (nao sao inseridos).
- * Na remocao de no com dois filhos, usa-se o antecessor in-order
- * (maior no da subarvore esquerda).
- */
 
 typedef enum { VERMELHO, PRETO } Cor;
 
@@ -25,7 +11,6 @@ typedef struct no
     struct no *esquerdo, *direito, *pai;
 } No;
 
-/* Sentinela: todas as folhas apontam para este unico no preto */
 No *NIL;
 
 int ler_inteiro(void)
@@ -71,7 +56,7 @@ No* novoNo(int x)
     if (novo)
     {
         novo->valor = x;
-        novo->cor = VERMELHO; /* todo no novo entra vermelho */
+        novo->cor = VERMELHO; 
         novo->esquerdo = NIL;
         novo->direito = NIL;
         novo->pai = NIL;
@@ -89,7 +74,6 @@ short maior(short a, short b)
     return (a > b) ? a : b;
 }
 
-/* ===================== ROTACOES ===================== */
 
 void rotacaoEsquerda(No **raiz, No *x)
 {
@@ -149,7 +133,6 @@ void rotacaoDireita(No **raiz, No *x)
     x->pai = y;
 }
 
-/* ===================== INSERCAO ===================== */
 
 void corrigirInsercao(No **raiz, No *z)
 {
@@ -163,7 +146,6 @@ void corrigirInsercao(No **raiz, No *z)
 
             if (tio->cor == VERMELHO)
             {
-                /* Caso 1: tio vermelho -> recolorir e subir */
                 z->pai->cor = PRETO;
                 tio->cor = PRETO;
                 z->pai->pai->cor = VERMELHO;
@@ -173,12 +155,10 @@ void corrigirInsercao(No **raiz, No *z)
             {
                 if (z == z->pai->direito)
                 {
-                    /* Caso 2: triangulo -> rotacao esquerda no pai */
                     z = z->pai;
                     rotacaoEsquerda(raiz, z);
                 }
 
-                /* Caso 3: linha -> recolorir e rotacao direita no avo */
                 z->pai->cor = PRETO;
                 z->pai->pai->cor = VERMELHO;
                 rotacaoDireita(raiz, z->pai->pai);
@@ -231,7 +211,7 @@ No* inserir(No *raiz, int x)
         }
         else
         {
-            return raiz; /* valor repetido: ignorado */
+            return raiz; 
         }
     }
 
@@ -261,7 +241,6 @@ No* inserir(No *raiz, int x)
     return raiz;
 }
 
-/* ===================== BUSCA ===================== */
 
 No* buscar(No *raiz, int num)
 {
@@ -284,7 +263,6 @@ No* buscar(No *raiz, int num)
     return NULL;
 }
 
-/* ===================== REMOCAO ===================== */
 
 No* maximo(No *no)
 {
@@ -296,7 +274,6 @@ No* maximo(No *no)
     return no;
 }
 
-/* Substitui a subarvore com raiz em u pela subarvore com raiz em v */
 void transplantar(No **raiz, No *u, No *v)
 {
     if (u->pai == NIL)
@@ -327,7 +304,6 @@ void corrigirRemocao(No **raiz, No *x)
 
             if (w->cor == VERMELHO)
             {
-                /* Caso 1: irmao vermelho */
                 w->cor = PRETO;
                 x->pai->cor = VERMELHO;
                 rotacaoEsquerda(raiz, x->pai);
@@ -336,7 +312,6 @@ void corrigirRemocao(No **raiz, No *x)
 
             if (w->esquerdo->cor == PRETO && w->direito->cor == PRETO)
             {
-                /* Caso 2: irmao preto com dois sobrinhos pretos */
                 w->cor = VERMELHO;
                 x = x->pai;
             }
@@ -344,14 +319,12 @@ void corrigirRemocao(No **raiz, No *x)
             {
                 if (w->direito->cor == PRETO)
                 {
-                    /* Caso 3: sobrinho distante preto, proximo vermelho */
                     w->esquerdo->cor = PRETO;
                     w->cor = VERMELHO;
                     rotacaoDireita(raiz, w);
                     w = x->pai->direito;
                 }
 
-                /* Caso 4: sobrinho distante vermelho */
                 w->cor = x->pai->cor;
                 x->pai->cor = PRETO;
                 w->direito->cor = PRETO;
@@ -433,7 +406,6 @@ No* remover(No *raiz, int chave)
     }
     else
     {
-        /* Dois filhos: usa o antecessor in-order */
         y = maximo(z->esquerdo);
         corOriginal = y->cor;
         x = y->esquerdo;
@@ -464,12 +436,11 @@ No* remover(No *raiz, int chave)
         corrigirRemocao(&raiz, x);
     }
 
-    NIL->pai = NIL; /* limpa o ponteiro temporario usado na correcao */
+    NIL->pai = NIL; 
 
     return raiz;
 }
 
-/* ===================== PERCURSOS ===================== */
 
 void pre_ordem(No *raiz)
 {
@@ -510,7 +481,6 @@ void pos_ordem(No *raiz)
     printf("%d ", raiz->valor);
 }
 
-/* ===================== ALTURA / COR / VALIDACAO ===================== */
 
 short alturaDoNo(No *no)
 {
@@ -522,7 +492,6 @@ short alturaDoNo(No *no)
     return maior(alturaDoNo(no->esquerdo), alturaDoNo(no->direito)) + 1;
 }
 
-/* Altura negra: numero de nos pretos ate uma folha NIL (sem contar o proprio no) */
 short alturaNegra(No *no)
 {
     short e, d;
@@ -538,7 +507,6 @@ short alturaNegra(No *no)
     return maior(e, d) + ((no->cor == PRETO) ? 1 : 0);
 }
 
-/* Retorna a altura negra se as propriedades 4 e 5 valem na subarvore, ou -1 se violadas */
 int validarSubarvore(No *no)
 {
     int e, d;
@@ -597,7 +565,6 @@ void alturaeCor(No *raiz)
     alturaeCor(raiz->direito);
 }
 
-/* ===================== LIBERAR MEMORIA ===================== */
 
 void liberar_arvore(No *raiz)
 {
@@ -612,7 +579,6 @@ void liberar_arvore(No *raiz)
     free(raiz);
 }
 
-/* ===================== MAIN ===================== */
 
 int main()
 {
