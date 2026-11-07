@@ -17,7 +17,7 @@ int ler_inteiro(void)
 {
     int valor;
 
-    while (scanf("%d", &valor) != 1)
+    while (scanf("%d", &valor) != 1) 
     {
         int c;
 
