@@ -1,737 +1,612 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 
 
-typedef enum { VERMELHO, PRETO } Cor;
-
-typedef struct no
-{
-    int valor;
-    Cor cor;
-    struct no *esquerdo, *direito, *pai;
+typedef struct No {
+    int chaves[3];
+    struct No *filhos[4];
+    int n;
+    int folha;
 } No;
 
-No *NIL;
+No *criar_no(int folha) {
+    No *novo = (No *)malloc(sizeof(No));
 
-int ler_inteiro(void)
-{
-    int valor;
-
-    while (scanf("%d", &valor) != 1) 
-    {
-        int c;
-
-        while ((c = getchar()) != '\n' && c != EOF)
-            ;
-
-        printf("Entrada invalida! Digite um numero inteiro: ");
+    if (novo == NULL) {
+        printf("Erro: memoria insuficiente.\n");
+        exit(EXIT_FAILURE);
     }
 
-    return valor;
-}
+    novo->n = 0;
+    novo->folha = folha;
 
-int iniciarNIL(void)
-{
-    NIL = malloc(sizeof(No));
-
-    if (NIL == NULL)
-    {
-        printf("\n erro ao alocar sentinela NIL!!!\n");
-        return 0;
-    }
-
-    NIL->valor = 0;
-    NIL->cor = PRETO;
-    NIL->esquerdo = NIL;
-    NIL->direito = NIL;
-    NIL->pai = NIL;
-
-    return 1;
-}
-
-No* novoNo(int x)
-{
-    No *novo = malloc(sizeof(No));
-
-    if (novo)
-    {
-        novo->valor = x;
-        novo->cor = VERMELHO; 
-        novo->esquerdo = NIL;
-        novo->direito = NIL;
-        novo->pai = NIL;
-    }
-    else
-    {
-        printf("\n erro ao alocar nó em novoNo!!!\n");
+    for (int i = 0; i < 4; i++) {
+        novo->filhos[i] = NULL;
     }
 
     return novo;
 }
 
-short maior(short a, short b)
-{
-    return (a > b) ? a : b;
-}
 
-
-void rotacaoEsquerda(No **raiz, No *x)
-{
-    No *y = x->direito;
-
-    x->direito = y->esquerdo;
-    if (y->esquerdo != NIL)
-    {
-        y->esquerdo->pai = x;
-    }
-
-    y->pai = x->pai;
-
-    if (x->pai == NIL)
-    {
-        *raiz = y;
-    }
-    else if (x == x->pai->esquerdo)
-    {
-        x->pai->esquerdo = y;
-    }
-    else
-    {
-        x->pai->direito = y;
-    }
-
-    y->esquerdo = x;
-    x->pai = y;
-}
-
-void rotacaoDireita(No **raiz, No *x)
-{
-    No *y = x->esquerdo;
-
-    x->esquerdo = y->direito;
-    if (y->direito != NIL)
-    {
-        y->direito->pai = x;
-    }
-
-    y->pai = x->pai;
-
-    if (x->pai == NIL)
-    {
-        *raiz = y;
-    }
-    else if (x == x->pai->direito)
-    {
-        x->pai->direito = y;
-    }
-    else
-    {
-        x->pai->esquerdo = y;
-    }
-
-    y->direito = x;
-    x->pai = y;
-}
-
-
-void corrigirInsercao(No **raiz, No *z)
-{
-    No *tio;
-
-    while (z->pai->cor == VERMELHO)
-    {
-        if (z->pai == z->pai->pai->esquerdo)
-        {
-            tio = z->pai->pai->direito;
-
-            if (tio->cor == VERMELHO)
-            {
-                z->pai->cor = PRETO;
-                tio->cor = PRETO;
-                z->pai->pai->cor = VERMELHO;
-                z = z->pai->pai;
-            }
-            else
-            {
-                if (z == z->pai->direito)
-                {
-                    z = z->pai;
-                    rotacaoEsquerda(raiz, z);
-                }
-
-                z->pai->cor = PRETO;
-                z->pai->pai->cor = VERMELHO;
-                rotacaoDireita(raiz, z->pai->pai);
-            }
-        }
-        else
-        {
-            tio = z->pai->pai->esquerdo;
-
-            if (tio->cor == VERMELHO)
-            {
-                z->pai->cor = PRETO;
-                tio->cor = PRETO;
-                z->pai->pai->cor = VERMELHO;
-                z = z->pai->pai;
-            }
-            else
-            {
-                if (z == z->pai->esquerdo)
-                {
-                    z = z->pai;
-                    rotacaoDireita(raiz, z);
-                }
-
-                z->pai->cor = PRETO;
-                z->pai->pai->cor = VERMELHO;
-                rotacaoEsquerda(raiz, z->pai->pai);
-            }
-        }
-    }
-
-    (*raiz)->cor = PRETO;
-}
-
-No* inserir(No *raiz, int x)
-{
-    No *z, *y = NIL, *p = raiz;
-
-    while (p != NIL)
-    {
-        y = p;
-
-        if (x < p->valor)
-        {
-            p = p->esquerdo;
-        }
-        else if (x > p->valor)
-        {
-            p = p->direito;
-        }
-        else
-        {
-            return raiz; 
-        }
-    }
-
-    z = novoNo(x);
-    if (z == NULL)
-    {
-        return raiz;
-    }
-
-    z->pai = y;
-
-    if (y == NIL)
-    {
-        raiz = z;
-    }
-    else if (x < y->valor)
-    {
-        y->esquerdo = z;
-    }
-    else
-    {
-        y->direito = z;
-    }
-
-    corrigirInsercao(&raiz, z);
-
-    return raiz;
-}
-
-
-No* buscar(No *raiz, int num)
-{
-    if (raiz != NIL)
-    {
-        if (num == raiz->valor)
-        {
-            return raiz;
-        }
-        else if (num < raiz->valor)
-        {
-            return buscar(raiz->esquerdo, num);
-        }
-        else
-        {
-            return buscar(raiz->direito, num);
-        }
-    }
-
-    return NULL;
-}
-
-
-No* maximo(No *no)
-{
-    while (no->direito != NIL)
-    {
-        no = no->direito;
-    }
-
-    return no;
-}
-
-void transplantar(No **raiz, No *u, No *v)
-{
-    if (u->pai == NIL)
-    {
-        *raiz = v;
-    }
-    else if (u == u->pai->esquerdo)
-    {
-        u->pai->esquerdo = v;
-    }
-    else
-    {
-        u->pai->direito = v;
-    }
-
-    v->pai = u->pai;
-}
-
-void corrigirRemocao(No **raiz, No *x)
-{
-    No *w;
-
-    while (x != *raiz && x->cor == PRETO)
-    {
-        if (x == x->pai->esquerdo)
-        {
-            w = x->pai->direito;
-
-            if (w->cor == VERMELHO)
-            {
-                w->cor = PRETO;
-                x->pai->cor = VERMELHO;
-                rotacaoEsquerda(raiz, x->pai);
-                w = x->pai->direito;
-            }
-
-            if (w->esquerdo->cor == PRETO && w->direito->cor == PRETO)
-            {
-                w->cor = VERMELHO;
-                x = x->pai;
-            }
-            else
-            {
-                if (w->direito->cor == PRETO)
-                {
-                    w->esquerdo->cor = PRETO;
-                    w->cor = VERMELHO;
-                    rotacaoDireita(raiz, w);
-                    w = x->pai->direito;
-                }
-
-                w->cor = x->pai->cor;
-                x->pai->cor = PRETO;
-                w->direito->cor = PRETO;
-                rotacaoEsquerda(raiz, x->pai);
-                x = *raiz;
-            }
-        }
-        else
-        {
-            w = x->pai->esquerdo;
-
-            if (w->cor == VERMELHO)
-            {
-                w->cor = PRETO;
-                x->pai->cor = VERMELHO;
-                rotacaoDireita(raiz, x->pai);
-                w = x->pai->esquerdo;
-            }
-
-            if (w->direito->cor == PRETO && w->esquerdo->cor == PRETO)
-            {
-                w->cor = VERMELHO;
-                x = x->pai;
-            }
-            else
-            {
-                if (w->esquerdo->cor == PRETO)
-                {
-                    w->direito->cor = PRETO;
-                    w->cor = VERMELHO;
-                    rotacaoEsquerda(raiz, w);
-                    w = x->pai->esquerdo;
-                }
-
-                w->cor = x->pai->cor;
-                x->pai->cor = PRETO;
-                w->esquerdo->cor = PRETO;
-                rotacaoDireita(raiz, x->pai);
-                x = *raiz;
-            }
-        }
-    }
-
-    x->cor = PRETO;
-}
-
-No* remover(No *raiz, int chave)
-{
-    No *z = buscar(raiz, chave);
-    No *y, *x;
-    Cor corOriginal;
-
-    if (z == NULL)
-    {
-        printf("Valor nao encontrado!\n");
-        return raiz;
-    }
-
-    y = z;
-    corOriginal = y->cor;
-
-    if (z->esquerdo == NIL && z->direito == NIL)
-    {
-        printf("Elemento folha removido: %d\n", chave);
-        x = NIL;
-        transplantar(&raiz, z, NIL);
-    }
-    else if (z->esquerdo == NIL)
-    {
-        printf("Elemento com 1 filho removido: %d\n", chave);
-        x = z->direito;
-        transplantar(&raiz, z, z->direito);
-    }
-    else if (z->direito == NIL)
-    {
-        printf("Elemento com 1 filho removido: %d\n", chave);
-        x = z->esquerdo;
-        transplantar(&raiz, z, z->esquerdo);
-    }
-    else
-    {
-        y = maximo(z->esquerdo);
-        corOriginal = y->cor;
-        x = y->esquerdo;
-
-        printf("Elemento com 2 filhos removido (antecessor: %d): %d\n", y->valor, chave);
-
-        if (y->pai == z)
-        {
-            x->pai = y;
-        }
-        else
-        {
-            transplantar(&raiz, y, y->esquerdo);
-            y->esquerdo = z->esquerdo;
-            y->esquerdo->pai = y;
-        }
-
-        transplantar(&raiz, z, y);
-        y->direito = z->direito;
-        y->direito->pai = y;
-        y->cor = z->cor;
-    }
-
-    free(z);
-
-    if (corOriginal == PRETO)
-    {
-        corrigirRemocao(&raiz, x);
-    }
-
-    NIL->pai = NIL; 
-
-    return raiz;
-}
-
-
-void pre_ordem(No *raiz)
-{
-    printf("%d ", raiz->valor);
-    if (raiz->esquerdo != NIL)
-    {
-        pre_ordem(raiz->esquerdo);
-    }
-    if (raiz->direito != NIL)
-    {
-        pre_ordem(raiz->direito);
-    }
-}
-
-void em_ordem(No *raiz)
-{
-    if (raiz->esquerdo != NIL)
-    {
-        em_ordem(raiz->esquerdo);
-    }
-    printf("%d ", raiz->valor);
-    if (raiz->direito != NIL)
-    {
-        em_ordem(raiz->direito);
-    }
-}
-
-void pos_ordem(No *raiz)
-{
-    if (raiz->esquerdo != NIL)
-    {
-        pos_ordem(raiz->esquerdo);
-    }
-    if (raiz->direito != NIL)
-    {
-        pos_ordem(raiz->direito);
-    }
-    printf("%d ", raiz->valor);
-}
-
-
-short alturaDoNo(No *no)
-{
-    if (no == NIL)
-    {
-        return -1;
-    }
-
-    return maior(alturaDoNo(no->esquerdo), alturaDoNo(no->direito)) + 1;
-}
-
-short alturaNegra(No *no)
-{
-    short e, d;
-
-    if (no == NIL)
-    {
-        return 0;
-    }
-
-    e = alturaNegra(no->esquerdo);
-    d = alturaNegra(no->direito);
-
-    return maior(e, d) + ((no->cor == PRETO) ? 1 : 0);
-}
-
-int validarSubarvore(No *no)
-{
-    int e, d;
-
-    if (no == NIL)
-    {
-        return 0;
-    }
-
-    if (no->cor == VERMELHO &&
-        (no->esquerdo->cor == VERMELHO || no->direito->cor == VERMELHO))
-    {
-        return -1;
-    }
-
-    e = validarSubarvore(no->esquerdo);
-    d = validarSubarvore(no->direito);
-
-    if (e == -1 || d == -1 || e != d)
-    {
-        return -1;
-    }
-
-    return e + ((no->cor == PRETO) ? 1 : 0);
-}
-
-int arvoreValida(No *raiz)
-{
-    if (raiz == NIL)
-    {
-        return 1;
-    }
-
-    if (raiz->cor != PRETO)
-    {
-        return 0;
-    }
-
-    return validarSubarvore(raiz) != -1;
-}
-
-void alturaeCor(No *raiz)
-{
-    if (raiz == NIL)
-    {
+void liberar_arvore(No *raiz) {
+    if (raiz == NULL)
         return;
+
+    for (int i = 0; i <= raiz->n; i++) {
+        liberar_arvore(raiz->filhos[i]);
     }
-
-    printf("No: %d | Cor: %s | Altura: %d | Altura negra: %d\n",
-           raiz->valor,
-           (raiz->cor == PRETO) ? "PRETO" : "VERMELHO",
-           alturaDoNo(raiz),
-           alturaNegra(raiz));
-
-    alturaeCor(raiz->esquerdo);
-    alturaeCor(raiz->direito);
-}
-
-
-void liberar_arvore(No *raiz)
-{
-    if (raiz == NIL)
-    {
-        return;
-    }
-
-    liberar_arvore(raiz->esquerdo);
-    liberar_arvore(raiz->direito);
 
     free(raiz);
 }
 
 
-int main()
-{
-    int opcao, valor, ordem;
-    No *busca, *raiz;
+No *buscar(No *raiz, int valor) {
+    if (raiz == NULL)
+        return NULL;
 
-    if (!iniciarNIL())
-    {
-        return 1;
+    int i = 0;
+
+    while (i < raiz->n && valor > raiz->chaves[i]) {
+        i++;
     }
 
-    raiz = NIL;
+    if (i < raiz->n && valor == raiz->chaves[i]) {
+        return raiz;
+    }
 
-    do
-    {
-        printf("\n=================>    MENU RUBRO-NEGRA    <=================\n");
-        printf("Selecione uma opcao (digite apenas o valor inteiro):\n");
-        printf(">(1) Inserir valor\n");
-        printf(">(2) Buscar valor\n");
-        printf(">(3) Remover valor\n");
-        printf(">(4) Percorrer arvore\n");
-        printf(">(5) Exibir altura, cor e altura negra\n");
-        printf(">(0) Sair\n");
-        printf("Opcao: ");
+    if (raiz->folha) {
+        return NULL;
+    }
 
-        opcao = ler_inteiro();
+    return buscar(raiz->filhos[i], valor);
+}
 
-        switch (opcao)
-        {
-        case 1:
-            printf("Digite um numero que deseja inserir: ");
-            valor = ler_inteiro();
 
-            if (buscar(raiz, valor) != NULL)
-            {
-                printf("\nInsercao nao realizada.\n");
-                printf("O elemento %d ja existe!\n", valor);
+void dividir_no(No *pai, int indice) {
+    No *cheio = pai->filhos[indice];
+
+    No *novo = criar_no(cheio->folha);
+
+    novo->n = 1;
+    novo->chaves[0] = cheio->chaves[2];
+
+    if (!cheio->folha) {
+        novo->filhos[0] = cheio->filhos[2];
+        novo->filhos[1] = cheio->filhos[3];
+
+        cheio->filhos[2] = NULL;
+        cheio->filhos[3] = NULL;
+    }
+
+    int chave_meio = cheio->chaves[1];
+
+    cheio->n = 1;
+
+    for (int j = pai->n; j >= indice + 1; j--) {
+        pai->filhos[j + 1] = pai->filhos[j];
+    }
+
+    pai->filhos[indice + 1] = novo;
+
+
+    for (int j = pai->n - 1; j >= indice; j--) {
+        pai->chaves[j + 1] = pai->chaves[j];
+    }
+
+    pai->chaves[indice] = chave_meio;
+    pai->n++;
+}
+
+void inserir_nao_cheio(No *no, int valor) {
+    int i = no->n - 1;
+
+    if (no->folha) {
+
+
+        while (i >= 0 && valor < no->chaves[i]) {
+            no->chaves[i + 1] = no->chaves[i];
+            i--;
+        }
+
+        no->chaves[i + 1] = valor;
+        no->n++;
+
+    } else {
+
+        while (i >= 0 && valor < no->chaves[i]) {
+            i--;
+        }
+
+        i++;
+
+
+        if (no->filhos[i]->n == 3) {
+
+            dividir_no(no, i);
+
+            if (valor > no->chaves[i]) {
+                i++;
             }
-            else
-            {
-                raiz = inserir(raiz, valor);
-                printf("Numero inserido com sucesso!\n");
+        }
+
+        inserir_nao_cheio(no->filhos[i], valor);
+    }
+}
+
+
+void inserir(No **raiz, int valor) {
+
+    if (buscar(*raiz, valor) != NULL) {
+        printf("Valor %d ja existe na arvore.\n", valor);
+        return;
+    }
+
+
+    if (*raiz == NULL) {
+        *raiz = criar_no(1);
+        (*raiz)->chaves[0] = valor;
+        (*raiz)->n = 1;
+        return;
+    }
+
+
+    if ((*raiz)->n == 3) {
+
+        No *nova_raiz = criar_no(0);
+
+        nova_raiz->filhos[0] = *raiz;
+
+        dividir_no(nova_raiz, 0);
+
+        *raiz = nova_raiz;
+    }
+
+    inserir_nao_cheio(*raiz, valor);
+}
+
+
+int encontrar_chave(No *no, int valor) {
+    int indice = 0;
+
+    while (indice < no->n && no->chaves[indice] < valor) {
+        indice++;
+    }
+
+    return indice;
+}
+
+
+int obter_predecessor(No *no) {
+    while (!no->folha) {
+        no = no->filhos[no->n];
+    }
+
+    return no->chaves[no->n - 1];
+}
+
+
+int obter_sucessor(No *no) {
+    while (!no->folha) {
+        no = no->filhos[0];
+    }
+
+    return no->chaves[0];
+}
+
+
+void emprestar_anterior(No *pai, int indice) {
+    No *filho = pai->filhos[indice];
+    No *irmao = pai->filhos[indice - 1];
+
+    for (int i = filho->n - 1; i >= 0; i--) {
+        filho->chaves[i + 1] = filho->chaves[i];
+    }
+
+
+    if (!filho->folha) {
+        for (int i = filho->n; i >= 0; i--) {
+            filho->filhos[i + 1] = filho->filhos[i];
+        }
+
+        filho->filhos[0] = irmao->filhos[irmao->n];
+        irmao->filhos[irmao->n] = NULL;
+    }
+
+
+    filho->chaves[0] = pai->chaves[indice - 1];
+
+
+    pai->chaves[indice - 1] = irmao->chaves[irmao->n - 1];
+
+    filho->n++;
+    irmao->n--;
+}
+
+
+void emprestar_seguinte(No *pai, int indice) {
+    No *filho = pai->filhos[indice];
+    No *irmao = pai->filhos[indice + 1];
+
+
+    filho->chaves[filho->n] = pai->chaves[indice];
+
+
+    if (!filho->folha) {
+        filho->filhos[filho->n + 1] = irmao->filhos[0];
+    }
+
+
+    pai->chaves[indice] = irmao->chaves[0];
+
+
+    for (int i = 1; i < irmao->n; i++) {
+        irmao->chaves[i - 1] = irmao->chaves[i];
+    }
+
+
+    if (!irmao->folha) {
+        for (int i = 1; i <= irmao->n; i++) {
+            irmao->filhos[i - 1] = irmao->filhos[i];
+        }
+
+        irmao->filhos[irmao->n] = NULL;
+    }
+
+    filho->n++;
+    irmao->n--;
+}
+
+
+void fundir(No *pai, int indice) {
+    No *filho = pai->filhos[indice];
+    No *irmao = pai->filhos[indice + 1];
+
+
+    filho->chaves[1] = pai->chaves[indice];
+
+
+    for (int i = 0; i < irmao->n; i++) {
+        filho->chaves[i + 2] = irmao->chaves[i];
+    }
+
+ 
+    if (!filho->folha) {
+        for (int i = 0; i <= irmao->n; i++) {
+            filho->filhos[i + 2] = irmao->filhos[i];
+            irmao->filhos[i] = NULL;
+        }
+    }
+
+    filho->n = 3;
+
+
+    for (int i = indice + 1; i < pai->n; i++) {
+        pai->chaves[i - 1] = pai->chaves[i];
+    }
+
+
+    for (int i = indice + 2; i <= pai->n; i++) {
+        pai->filhos[i - 1] = pai->filhos[i];
+    }
+
+    pai->filhos[pai->n] = NULL;
+    pai->n--;
+
+    free(irmao);
+}
+
+
+void preencher_filho(No *pai, int indice) {
+
+
+    if (indice > 0 && pai->filhos[indice - 1]->n >= 2) {
+        emprestar_anterior(pai, indice);
+    }
+
+
+    else if (indice < pai->n &&
+             pai->filhos[indice + 1]->n >= 2) {
+        emprestar_seguinte(pai, indice);
+    }
+
+
+    else {
+
+        if (indice < pai->n) {
+            fundir(pai, indice);
+        } else {
+            fundir(pai, indice - 1);
+        }
+    }
+}
+
+void remover_no(No *no, int valor) {
+
+    int indice = encontrar_chave(no, valor);
+
+    if (indice < no->n && no->chaves[indice] == valor) {
+
+
+        if (no->folha) {
+
+            for (int i = indice + 1; i < no->n; i++) {
+                no->chaves[i - 1] = no->chaves[i];
             }
 
-            break;
+            no->n--;
+        }
 
-        case 2:
-            if (raiz == NIL)
-            {
-                printf("\nA arvore esta vazia (nenhum valor inserido)!\n");
-                break;
+
+        else {
+
+            No *esquerdo = no->filhos[indice];
+            No *direito = no->filhos[indice + 1];
+
+
+            if (esquerdo->n >= 2) {
+
+                int predecessor = obter_predecessor(esquerdo);
+
+                no->chaves[indice] = predecessor;
+
+                remover_no(esquerdo, predecessor);
             }
 
-            printf("Digite um numero que deseja buscar: ");
-            valor = ler_inteiro();
 
-            busca = buscar(raiz, valor);
+            else if (direito->n >= 2) {
 
-            if (busca != NULL)
-            {
-                printf("\nNumero encontrado: %d\n", busca->valor);
-            }
-            else
-            {
-                printf("Numero nao encontrado.\n");
+                int sucessor = obter_sucessor(direito);
+
+                no->chaves[indice] = sucessor;
+
+                remover_no(direito, sucessor);
             }
 
-            break;
 
-        case 3:
-            if (raiz == NIL)
-            {
-                printf("\nA arvore esta vazia (nenhum valor inserido)!\n");
-                break;
+            else {
+
+                fundir(no, indice);
+
+                remover_no(esquerdo, valor);
             }
+        }
 
-            printf("Digite um valor que deseja remover: ");
-            valor = ler_inteiro();
+    } else {
 
-            raiz = remover(raiz, valor);
 
-            break;
+        if (no->folha) {
+            return;
+        }
 
-        case 4:
-            if (raiz == NIL)
-            {
-                printf("\nA arvore esta vazia (nenhum valor inserido)!\n");
-                break;
+        int era_ultimo = (indice == no->n);
+
+ 
+        if (no->filhos[indice]->n == 1) {
+            preencher_filho(no, indice);
+        }
+
+
+        if (era_ultimo && indice > no->n) {
+            remover_no(no->filhos[indice - 1], valor);
+        } else {
+            remover_no(no->filhos[indice], valor);
+        }
+    }
+}
+
+
+void remover(No **raiz, int valor) {
+
+    if (*raiz == NULL) {
+        printf("Arvore vazia.\n");
+        return;
+    }
+
+    if (buscar(*raiz, valor) == NULL) {
+        printf("Valor %d nao encontrado.\n", valor);
+        return;
+    }
+
+    remover_no(*raiz, valor);
+
+
+    if ((*raiz)->n == 0) {
+
+        No *antiga_raiz = *raiz;
+
+        if (antiga_raiz->folha) {
+            *raiz = NULL;
+        } else {
+            *raiz = antiga_raiz->filhos[0];
+            antiga_raiz->filhos[0] = NULL;
+        }
+
+        free(antiga_raiz);
+    }
+
+    printf("Valor %d removido com sucesso.\n", valor);
+}
+
+
+void percorrer_em_ordem(No *raiz) {
+
+    if (raiz == NULL)
+        return;
+
+    int i;
+
+    for (i = 0; i < raiz->n; i++) {
+
+        if (!raiz->folha) {
+            percorrer_em_ordem(raiz->filhos[i]);
+        }
+
+        printf("%d ", raiz->chaves[i]);
+    }
+
+    if (!raiz->folha) {
+        percorrer_em_ordem(raiz->filhos[i]);
+    }
+}
+
+
+int altura(No *raiz) {
+
+    if (raiz == NULL)
+        return 0;
+
+    if (raiz->folha)
+        return 1;
+
+    return 1 + altura(raiz->filhos[0]);
+}
+
+
+void exibir_nivel(No *raiz, int nivel) {
+
+    if (raiz == NULL)
+        return;
+
+    if (nivel == 0) {
+
+        printf("[");
+
+        for (int i = 0; i < raiz->n; i++) {
+            printf("%d", raiz->chaves[i]);
+
+            if (i < raiz->n - 1) {
+                printf(" | ");
             }
+        }
 
-            printf("\nEscolha um percurso:\n");
-            printf("(1) Pre-ordem\n");
-            printf("(2) Em ordem\n");
-            printf("(3) Pos-ordem\n");
-            printf("Opcao: ");
+        printf("] ");
 
-            ordem = ler_inteiro();
+    } else {
 
-            switch (ordem)
-            {
+        for (int i = 0; i <= raiz->n; i++) {
+            exibir_nivel(raiz->filhos[i], nivel - 1);
+        }
+    }
+}
+
+
+void exibir_por_niveis(No *raiz) {
+
+    if (raiz == NULL) {
+        printf("Arvore vazia.\n");
+        return;
+    }
+
+    int h = altura(raiz);
+
+    for (int i = 0; i < h; i++) {
+
+        printf("Nivel %d: ", i);
+
+        exibir_nivel(raiz, i);
+
+        printf("\n");
+    }
+}
+
+
+int main() {
+
+    No *raiz = NULL;
+
+    int opcao, valor;
+
+    do {
+
+        printf("\n========== ARVORE 2-3-4 ==========\n");
+        printf("1 - Inserir valor\n");
+        printf("2 - Buscar valor\n");
+        printf("3 - Remover valor\n");
+        printf("4 - Percorrer em ordem\n");
+        printf("5 - Exibir arvore por niveis\n");
+        printf("0 - Sair\n");
+        printf("=================================\n");
+
+        printf("Escolha uma opcao: ");
+
+        if (scanf("%d", &opcao) != 1) {
+            printf("Entrada invalida.\n");
+
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF);
+
+            continue;
+        }
+
+        switch (opcao) {
+
             case 1:
-                pre_ordem(raiz);
-                printf("\n");
+                printf("Digite o valor a inserir: ");
+                if (scanf("%d", &valor) != 1) {
+                    printf("Valor invalido.\n");
+                    while (getchar() != '\n');
+                    break;
+                }
+
+                inserir(&raiz, valor);
+                printf("Operacao de insercao concluida.\n");
                 break;
 
             case 2:
-                em_ordem(raiz);
-                printf("\n");
+                printf("Digite o valor a buscar: ");
+                if (scanf("%d", &valor) != 1) {
+                    printf("Valor invalido.\n");
+                    while (getchar() != '\n');
+                    break;
+                }
+
+                if (buscar(raiz, valor) != NULL) {
+                    printf("Valor %d encontrado!\n", valor);
+                } else {
+                    printf("Valor %d nao encontrado.\n", valor);
+                }
                 break;
 
             case 3:
-                pos_ordem(raiz);
+                printf("Digite o valor a remover: ");
+                if (scanf("%d", &valor) != 1) {
+                    printf("Valor invalido.\n");
+                    while (getchar() != '\n');
+                    break;
+                }
+
+                remover(&raiz, valor);
+                break;
+
+            case 4:
+                printf("Percurso em ordem: ");
+
+                if (raiz == NULL) {
+                    printf("Arvore vazia.");
+                } else {
+                    percorrer_em_ordem(raiz);
+                }
+
                 printf("\n");
                 break;
 
+            case 5:
+                printf("\nArvore por niveis:\n");
+                exibir_por_niveis(raiz);
+                break;
+
+            case 0:
+                printf("Encerrando o programa...\n");
+                break;
+
             default:
-                printf("Opcao invalida, tente novamente.\n");
-                break;
-            }
-
-            break;
-
-        case 5:
-            if (raiz == NIL)
-            {
-                printf("\nA arvore esta vazia (nenhum valor inserido)!\n");
-                break;
-            }
-
-            printf("\nAltura da arvore: %d\n", alturaDoNo(raiz));
-            printf("Altura negra da arvore: %d\n", alturaNegra(raiz));
-            printf("Cor, altura e altura negra dos nos:\n");
-
-            alturaeCor(raiz);
-
-            printf("\nPropriedades rubro-negras: %s\n",
-                   arvoreValida(raiz) ? "VALIDAS" : "VIOLADAS");
-
-            break;
-
-        default:
-            if (opcao != 0)
-            {
-                printf("Opcao invalida, tente novamente.\n");
-            }
-
-            break;
+                printf("Opcao invalida!\n");
         }
 
     } while (opcao != 0);
 
     liberar_arvore(raiz);
-    free(NIL);
 
     return 0;
 }
