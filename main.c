@@ -19,7 +19,6 @@ typedef struct {
     size_t tamanho;
 } Tabela;
 
-/* ---------- utilitarios ---------- */
 
 static int eh_primo(size_t n) {
     if (n < 2) return 0;
@@ -33,7 +32,7 @@ static size_t proximo_primo(size_t n) {
     return n;
 }
 
-/* Hash FNV-1a de 32 bits */
+
 uint32_t funcao_hash(const char *texto) {
     uint32_t h = 2166136261u;
     for (int i = 0; texto[i] != '\0'; i++) {
@@ -56,8 +55,6 @@ void normalizar(char *palavra) {
         }
     }
 }
-
-/* ---------- criacao ---------- */
 
 Entrada *criar_entrada(const char *chave) {
     Entrada *nova = (Entrada *)malloc(sizeof(Entrada));
@@ -92,7 +89,6 @@ Tabela *criar_tabela(size_t capacidade) {
     return t;
 }
 
-/* ---------- operacoes ---------- */
 
 int buscar_palavra(Tabela *t, const char *palavra) {
     size_t indice = funcao_hash(palavra) % t->capacidade;
@@ -104,7 +100,6 @@ int buscar_palavra(Tabela *t, const char *palavra) {
     return 0;
 }
 
-/* Dobra a capacidade (proximo primo) e redistribui as entradas */
 void redimensionar(Tabela *t) {
     size_t nova_cap = proximo_primo(t->capacidade * 2 + 1);
     Entrada **novos = (Entrada **)calloc(nova_cap, sizeof(Entrada *));
@@ -115,9 +110,9 @@ void redimensionar(Tabela *t) {
     for (size_t i = 0; i < t->capacidade; i++) {
         Entrada *atual = t->baldes[i];
         while (atual != NULL) {
-            Entrada *proxima = atual->prox;          /* guarda o proximo antes de mexer */
+            Entrada *proxima = atual->prox;          
             size_t idx = funcao_hash(atual->chave) % nova_cap;
-            atual->prox = novos[idx];                /* insere no inicio do novo balde */
+            atual->prox = novos[idx];               
             novos[idx] = atual;
             atual = proxima;
         }
@@ -127,7 +122,6 @@ void redimensionar(Tabela *t) {
     t->capacidade = nova_cap;
 }
 
-/* Retorna 1 se inseriu, 0 se a palavra ja existia */
 int inserir(Tabela *t, const char *palavra) {
     if (buscar_palavra(t, palavra)) return 0;
 
@@ -220,7 +214,6 @@ void liberar_tabela(Tabela *t) {
     free(t);
 }
 
-/* ---------- entrada de dados ---------- */
 
 void ler_palavra(char *destino, size_t tamanho, const char *mensagem) {
     printf("%s", mensagem);
