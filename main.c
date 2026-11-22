@@ -2,22 +2,45 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdint.h>
 
-#define TAM_ALFABETO 256
 #define TAM_PALAVRA 256
+#define CAPACIDADE_INICIAL 11
+#define FATOR_CARGA_MAX 0.75
 
-typedef struct No {
-    struct No *filhos[TAM_ALFABETO];
-    int fim_da_palavra;
-} No;
+typedef struct Entrada {
+    char *chave;
+    struct Entrada *prox;
+} Entrada;
 
-No *criar_no(void) {
-    No *novo = (No *)calloc(1, sizeof(No));
-    if (novo == NULL) {
-        fprintf(stderr, "Erro: memoria insuficiente.\n");
-        exit(EXIT_FAILURE);
+typedef struct {
+    Entrada **baldes;
+    size_t capacidade;
+    size_t tamanho;
+} Tabela;
+
+/* ---------- utilitarios ---------- */
+
+static int eh_primo(size_t n) {
+    if (n < 2) return 0;
+    for (size_t i = 2; i * i <= n; i++)
+        if (n % i == 0) return 0;
+    return 1;
+}
+
+static size_t proximo_primo(size_t n) {
+    while (!eh_primo(n)) n++;
+    return n;
+}
+
+/* Hash FNV-1a de 32 bits */
+uint32_t funcao_hash(const char *texto) {
+    uint32_t h = 2166136261u;
+    for (int i = 0; texto[i] != '\0'; i++) {
+        h ^= (unsigned char)texto[i];
+        h *= 16777619u;
     }
-    return novo;
+    return h;
 }
 
 void normalizar(char *palavra) {
@@ -34,134 +57,170 @@ void normalizar(char *palavra) {
     }
 }
 
-void inserir(No *raiz, const char *palavra) {
-    No *atual = raiz;
-    for (int i = 0; palavra[i] != '\0'; i++) {
-        unsigned char indice = (unsigned char)palavra[i];
-        if (atual->filhos[indice] == NULL)
-            atual->filhos[indice] = criar_no();
-        atual = atual->filhos[indice];
+/* ---------- criacao ---------- */
+
+Entrada *criar_entrada(const char *chave) {
+    Entrada *nova = (Entrada *)malloc(sizeof(Entrada));
+    if (nova == NULL) {
+        fprintf(stderr, "Erro: memoria insuficiente.\n");
+        exit(EXIT_FAILURE);
     }
-    atual->fim_da_palavra = 1;
+    size_t tam = strlen(chave) + 1;
+    nova->chave = (char *)malloc(tam);
+    if (nova->chave == NULL) {
+        fprintf(stderr, "Erro: memoria insuficiente.\n");
+        exit(EXIT_FAILURE);
+    }
+    memcpy(nova->chave, chave, tam);
+    nova->prox = NULL;
+    return nova;
 }
 
-No *buscar_no(No *raiz, const char *texto) {
-    No *atual = raiz;
-    for (int i = 0; texto[i] != '\0'; i++) {
-        unsigned char indice = (unsigned char)texto[i];
-        if (atual->filhos[indice] == NULL) return NULL;
-        atual = atual->filhos[indice];
+Tabela *criar_tabela(size_t capacidade) {
+    Tabela *t = (Tabela *)malloc(sizeof(Tabela));
+    if (t == NULL) {
+        fprintf(stderr, "Erro: memoria insuficiente.\n");
+        exit(EXIT_FAILURE);
     }
-    return atual;
+    t->capacidade = capacidade;
+    t->tamanho = 0;
+    t->baldes = (Entrada **)calloc(capacidade, sizeof(Entrada *));
+    if (t->baldes == NULL) {
+        fprintf(stderr, "Erro: memoria insuficiente.\n");
+        exit(EXIT_FAILURE);
+    }
+    return t;
 }
 
-int buscar_palavra(No *raiz, const char *palavra) {
-    No *no = buscar_no(raiz, palavra);
-    return no != NULL && no->fim_da_palavra;
-}
+/* ---------- operacoes ---------- */
 
-void listar_recursivo(No *no, char *buffer, int profundidade) {
-    if (no->fim_da_palavra) {
-        buffer[profundidade] = '\0';
-        printf("%s\n", buffer);
+int buscar_palavra(Tabela *t, const char *palavra) {
+    size_t indice = funcao_hash(palavra) % t->capacidade;
+    Entrada *atual = t->baldes[indice];
+    while (atual != NULL) {
+        if (strcmp(atual->chave, palavra) == 0) return 1;
+        atual = atual->prox;
     }
-    for (int i = 0; i < TAM_ALFABETO; i++) {
-        if (no->filhos[i] != NULL) {
-            buffer[profundidade] = (char)i;
-            listar_recursivo(no->filhos[i], buffer, profundidade + 1);
-        }
-    }
-}
-
-void listar_recursivo_sem_prefixo(No *no, char *buffer, int profundidade, int *quantidade) {
-    for (int i = 0; i < TAM_ALFABETO; i++) {
-        if (no->filhos[i] != NULL) {
-            buffer[profundidade] = (char)i;
-            buffer[profundidade + 1] = '\0';
-            No *filho = no->filhos[i];
-            if (filho->fim_da_palavra) {
-                printf("%s\n", buffer);
-                (*quantidade)++;
-            }
-            listar_recursivo_sem_prefixo(filho, buffer, profundidade + 1, quantidade);
-        }
-    }
-}
-
-void buscar_por_prefixo(No *raiz, const char *prefixo) {
-    No *no = buscar_no(raiz, prefixo);
-    if (no == NULL) {
-        printf("Nenhuma palavra encontrada com esse prefixo.\n");
-        return;
-    }
-    char buffer[TAM_PALAVRA + 1];
-    size_t tamanho = strlen(prefixo);
-    if (tamanho >= sizeof(buffer)) {
-        printf("Prefixo muito longo.\n");
-        return;
-    }
-    strcpy(buffer, prefixo);
-    int quantidade = 0;
-    if (no->fim_da_palavra) {
-        printf("%s\n", prefixo);
-        quantidade++;
-    }
-    listar_recursivo_sem_prefixo(no, buffer, (int)tamanho, &quantidade);
-    if (quantidade == 0)
-        printf("Nenhuma palavra encontrada com esse prefixo.\n");
-}
-
-int tem_filhos(No *no) {
-    for (int i = 0; i < TAM_ALFABETO; i++)
-        if (no->filhos[i] != NULL) return 1;
     return 0;
 }
 
-int remover_recursivo(No *no, const unsigned char *palavra, int profundidade) {
-    if (palavra[profundidade] == '\0') {
-        if (!no->fim_da_palavra) return 0;
-        no->fim_da_palavra = 0;
-        return !tem_filhos(no);
+/* Dobra a capacidade (proximo primo) e redistribui as entradas */
+void redimensionar(Tabela *t) {
+    size_t nova_cap = proximo_primo(t->capacidade * 2 + 1);
+    Entrada **novos = (Entrada **)calloc(nova_cap, sizeof(Entrada *));
+    if (novos == NULL) {
+        fprintf(stderr, "Erro: memoria insuficiente.\n");
+        exit(EXIT_FAILURE);
     }
-    unsigned char indice = palavra[profundidade];
-    No *filho = no->filhos[indice];
-    if (filho == NULL) return 0;
-    int pode_apagar_filho = remover_recursivo(filho, palavra, profundidade + 1);
-    if (pode_apagar_filho) {
-        free(filho);
-        no->filhos[indice] = NULL;
+    for (size_t i = 0; i < t->capacidade; i++) {
+        Entrada *atual = t->baldes[i];
+        while (atual != NULL) {
+            Entrada *proxima = atual->prox;          /* guarda o proximo antes de mexer */
+            size_t idx = funcao_hash(atual->chave) % nova_cap;
+            atual->prox = novos[idx];                /* insere no inicio do novo balde */
+            novos[idx] = atual;
+            atual = proxima;
+        }
     }
-    return !no->fim_da_palavra && !tem_filhos(no);
+    free(t->baldes);
+    t->baldes = novos;
+    t->capacidade = nova_cap;
 }
 
-int remover_palavra(No *raiz, const char *palavra) {
-    if (!buscar_palavra(raiz, palavra)) return 0;
-    remover_recursivo(raiz, (const unsigned char *)palavra, 0);
+/* Retorna 1 se inseriu, 0 se a palavra ja existia */
+int inserir(Tabela *t, const char *palavra) {
+    if (buscar_palavra(t, palavra)) return 0;
+
+    if ((double)(t->tamanho + 1) / (double)t->capacidade > FATOR_CARGA_MAX)
+        redimensionar(t);
+
+    size_t indice = funcao_hash(palavra) % t->capacidade;
+    Entrada *nova = criar_entrada(palavra);
+    nova->prox = t->baldes[indice];
+    t->baldes[indice] = nova;
+    t->tamanho++;
     return 1;
 }
 
-void liberar_arvore(No *no) {
-    if (no == NULL) return;
-    for (int i = 0; i < TAM_ALFABETO; i++)
-        liberar_arvore(no->filhos[i]);
-    free(no);
+int remover_palavra(Tabela *t, const char *palavra) {
+    size_t indice = funcao_hash(palavra) % t->capacidade;
+    Entrada *atual = t->baldes[indice];
+    Entrada *anterior = NULL;
+
+    while (atual != NULL) {
+        if (strcmp(atual->chave, palavra) == 0) {
+            if (anterior == NULL) t->baldes[indice] = atual->prox;
+            else anterior->prox = atual->prox;
+            free(atual->chave);
+            free(atual);
+            t->tamanho--;
+            return 1;
+        }
+        anterior = atual;
+        atual = atual->prox;
+    }
+    return 0;
 }
 
-void imprimir_caractere(unsigned char c) {
-    if (c >= 32 && c <= 126 && c != '\\') printf("%c", c);
-    else printf("\\x%02X", c);
+void listar_todas(Tabela *t) {
+    for (size_t i = 0; i < t->capacidade; i++) {
+        Entrada *atual = t->baldes[i];
+        while (atual != NULL) {
+            printf("%s\n", atual->chave);
+            atual = atual->prox;
+        }
+    }
 }
 
-void desenhar_recursivo(No *no, int nivel, unsigned char caractere) {
-    for (int i = 0; i < nivel; i++) printf("  ");
-    if (nivel == 0) printf("(raiz)");
-    else imprimir_caractere(caractere);
-    if (no->fim_da_palavra) printf(" [FIM]");
-    printf("\n");
-    for (int i = 0; i < TAM_ALFABETO; i++)
-        if (no->filhos[i] != NULL)
-            desenhar_recursivo(no->filhos[i], nivel + 1, (unsigned char)i);
+void desenhar_tabela(Tabela *t) {
+    int mostrar_vazios = (t->capacidade <= 50);
+    for (size_t i = 0; i < t->capacidade; i++) {
+        Entrada *atual = t->baldes[i];
+        if (atual == NULL && !mostrar_vazios) continue;
+        printf("[%3zu] ", i);
+        while (atual != NULL) {
+            printf("%s -> ", atual->chave);
+            atual = atual->prox;
+        }
+        printf("NULL\n");
+    }
+    if (!mostrar_vazios)
+        printf("(baldes vazios omitidos)\n");
 }
+
+void mostrar_estatisticas(Tabela *t) {
+    size_t usados = 0, maior_cadeia = 0;
+    for (size_t i = 0; i < t->capacidade; i++) {
+        size_t tamanho_cadeia = 0;
+        for (Entrada *e = t->baldes[i]; e != NULL; e = e->prox) tamanho_cadeia++;
+        if (tamanho_cadeia > 0) usados++;
+        if (tamanho_cadeia > maior_cadeia) maior_cadeia = tamanho_cadeia;
+    }
+    printf("Capacidade (baldes)    : %zu\n", t->capacidade);
+    printf("Palavras armazenadas   : %zu\n", t->tamanho);
+    printf("Baldes ocupados        : %zu\n", usados);
+    printf("Colisoes               : %zu\n", t->tamanho - usados);
+    printf("Maior cadeia           : %zu\n", maior_cadeia);
+    printf("Fator de carga         : %.2f (limite %.2f)\n",
+           (double)t->tamanho / (double)t->capacidade, FATOR_CARGA_MAX);
+}
+
+void liberar_tabela(Tabela *t) {
+    if (t == NULL) return;
+    for (size_t i = 0; i < t->capacidade; i++) {
+        Entrada *atual = t->baldes[i];
+        while (atual != NULL) {
+            Entrada *proxima = atual->prox;
+            free(atual->chave);
+            free(atual);
+            atual = proxima;
+        }
+    }
+    free(t->baldes);
+    free(t);
+}
+
+/* ---------- entrada de dados ---------- */
 
 void ler_palavra(char *destino, size_t tamanho, const char *mensagem) {
     printf("%s", mensagem);
@@ -174,19 +233,19 @@ void ler_palavra(char *destino, size_t tamanho, const char *mensagem) {
 }
 
 int main(void) {
-    No *raiz = criar_no();
-    char palavra[TAM_PALAVRA], prefixo[TAM_PALAVRA], linha[32];
+    Tabela *tabela = criar_tabela(CAPACIDADE_INICIAL);
+    char palavra[TAM_PALAVRA], linha[32];
     int opcao;
 
     do {
-        printf("\n========== ARVORE TRIE ==========\n");
+        printf("\n========== TABELA HASH ==========\n");
         printf("1 - Inserir palavra\n");
         printf("2 - Buscar palavra\n");
-        printf("3 - Buscar por prefixo\n");
-        printf("4 - Remover palavra\n");
-        printf("5 - Listar todas as palavras\n");
-        printf("6 - Carregar exemplo (casa, casal, caso, cama)\n");
-        printf("7 - Desenhar a arvore\n");
+        printf("3 - Remover palavra\n");
+        printf("4 - Listar todas as palavras\n");
+        printf("5 - Desenhar a tabela\n");
+        printf("6 - Estatisticas (colisoes, carga)\n");
+        printf("7 - Teste de estresse (inserir 50 palavras)\n");
         printf("0 - Sair\n");
         printf("Escolha uma opcao: ");
 
@@ -200,52 +259,44 @@ int main(void) {
             case 1:
                 ler_palavra(palavra, sizeof(palavra), "Digite a palavra: ");
                 if (palavra[0] == '\0') printf("Palavra vazia nao pode ser inserida.\n");
-                else {
-                    inserir(raiz, palavra);
-                    printf("Palavra inserida com sucesso.\n");
-                }
+                else if (inserir(tabela, palavra)) printf("Palavra inserida com sucesso.\n");
+                else printf("Essa palavra ja existe na tabela.\n");
                 break;
 
             case 2:
                 ler_palavra(palavra, sizeof(palavra), "Digite a palavra que deseja buscar: ");
-                if (buscar_palavra(raiz, palavra)) printf("Palavra encontrada!\n");
+                if (buscar_palavra(tabela, palavra)) printf("Palavra encontrada!\n");
                 else printf("Palavra nao encontrada.\n");
                 break;
 
             case 3:
-                ler_palavra(prefixo, sizeof(prefixo), "Digite o prefixo: ");
-                if (prefixo[0] == '\0') printf("Prefixo vazio. Digite ao menos um caractere.\n");
-                else {
-                    printf("Palavras com o prefixo '%s':\n", prefixo);
-                    buscar_por_prefixo(raiz, prefixo);
-                }
+                ler_palavra(palavra, sizeof(palavra), "Digite a palavra que deseja remover: ");
+                if (remover_palavra(tabela, palavra)) printf("Palavra removida com sucesso.\n");
+                else printf("Essa palavra nao existe na tabela.\n");
                 break;
 
             case 4:
-                ler_palavra(palavra, sizeof(palavra), "Digite a palavra que deseja remover: ");
-                if (remover_palavra(raiz, palavra)) printf("Palavra removida com sucesso.\n");
-                else printf("Essa palavra nao existe na arvore.\n");
+                printf("Palavras armazenadas:\n");
+                if (tabela->tamanho == 0) printf("(tabela vazia)\n");
+                else listar_todas(tabela);
                 break;
 
-            case 5: {
-                char buffer[TAM_PALAVRA + 1];
-                printf("Palavras armazenadas:\n");
-                if (!tem_filhos(raiz) && !raiz->fim_da_palavra) printf("(arvore vazia)\n");
-                else listar_recursivo(raiz, buffer, 0);
+            case 5:
+                printf("Representacao da tabela (cada [i] e um balde):\n");
+                desenhar_tabela(tabela);
                 break;
-            }
 
             case 6:
-                inserir(raiz, "casa");
-                inserir(raiz, "casal");
-                inserir(raiz, "caso");
-                inserir(raiz, "cama");
-                printf("Exemplo carregado.\n");
+                mostrar_estatisticas(tabela);
                 break;
 
             case 7:
-                printf("Representacao da Trie ([FIM] indica o final de uma palavra):\n");
-                desenhar_recursivo(raiz, 0, 0);
+                for (int i = 0; i < 50; i++) {
+                    char gerada[32];
+                    sprintf(gerada, "palavra%d", i);
+                    inserir(tabela, gerada);
+                }
+                printf("50 palavras inseridas. Veja a opcao 6 para as estatisticas.\n");
                 break;
 
             case 0:
@@ -257,6 +308,6 @@ int main(void) {
         }
     } while (opcao != 0);
 
-    liberar_arvore(raiz);
+    liberar_tabela(tabela);
     return 0;
 }
