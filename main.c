@@ -153,12 +153,12 @@ int main(void) {
     do {
         printf("\n=======================>    TABELA HASH    <=======================\n");
         printf("Selecione uma opcao (digite apenas o valor inteiro):\n");
-        printf(">(0) Sair\n");
         printf(">(1) Inserir\n");
         printf(">(2) Remover\n");
         printf(">(3) Buscar\n");
         printf(">(4) Listar\n");
         printf(">(5) Estatisticas\n");
+        printf(">(0) Sair\n");
         opcao = lerInteiro("Opcao: ");
 
         switch (opcao) {
