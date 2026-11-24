@@ -1,306 +1,208 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdint.h>
 
-#define TAM_PALAVRA 256
-#define CAPACIDADE_INICIAL 11
-#define FATOR_CARGA_MAX 0.75
+#define TAM 11  
 
-typedef struct Entrada {
-    char *chave;
-    struct Entrada *prox;
-} Entrada;
+typedef struct No {
+    int chave;
+    struct No *prox;   
+} No;
 
 typedef struct {
-    Entrada **baldes;
-    size_t capacidade;
-    size_t tamanho;
-} Tabela;
+    No *posicoes[TAM]; 
+    int qtd;           
+} TabelaHash;
 
-
-static int eh_primo(size_t n) {
-    if (n < 2) return 0;
-    for (size_t i = 2; i * i <= n; i++)
-        if (n % i == 0) return 0;
-    return 1;
+int hash(int chave) {
+    return ((chave % TAM) + TAM) % TAM; 
 }
 
-static size_t proximo_primo(size_t n) {
-    while (!eh_primo(n)) n++;
-    return n;
+void inicializar(TabelaHash *t) {
+    for (int i = 0; i < TAM; i++)
+        t->posicoes[i] = NULL;
+    t->qtd = 0;
 }
 
-
-uint32_t funcao_hash(const char *texto) {
-    uint32_t h = 2166136261u;
-    for (int i = 0; texto[i] != '\0'; i++) {
-        h ^= (unsigned char)texto[i];
-        h *= 16777619u;
-    }
-    return h;
-}
-
-void normalizar(char *palavra) {
-    for (int i = 0; palavra[i] != '\0'; i++) {
-        unsigned char c = (unsigned char)palavra[i];
-        if (c < 128) {
-            palavra[i] = (char)tolower(c);
-        } else if (c == 0xC3 && palavra[i + 1] != '\0') {
-            unsigned char seguinte = (unsigned char)palavra[i + 1];
-            if ((seguinte >= 0x80 && seguinte <= 0x96) ||
-                (seguinte >= 0x98 && seguinte <= 0x9E))
-                palavra[i + 1] = (char)(seguinte + 0x20);
-        }
-    }
-}
-
-Entrada *criar_entrada(const char *chave) {
-    Entrada *nova = (Entrada *)malloc(sizeof(Entrada));
-    if (nova == NULL) {
-        fprintf(stderr, "Erro: memoria insuficiente.\n");
-        exit(EXIT_FAILURE);
-    }
-    size_t tam = strlen(chave) + 1;
-    nova->chave = (char *)malloc(tam);
-    if (nova->chave == NULL) {
-        fprintf(stderr, "Erro: memoria insuficiente.\n");
-        exit(EXIT_FAILURE);
-    }
-    memcpy(nova->chave, chave, tam);
-    nova->prox = NULL;
-    return nova;
-}
-
-Tabela *criar_tabela(size_t capacidade) {
-    Tabela *t = (Tabela *)malloc(sizeof(Tabela));
-    if (t == NULL) {
-        fprintf(stderr, "Erro: memoria insuficiente.\n");
-        exit(EXIT_FAILURE);
-    }
-    t->capacidade = capacidade;
-    t->tamanho = 0;
-    t->baldes = (Entrada **)calloc(capacidade, sizeof(Entrada *));
-    if (t->baldes == NULL) {
-        fprintf(stderr, "Erro: memoria insuficiente.\n");
-        exit(EXIT_FAILURE);
-    }
-    return t;
-}
-
-
-int buscar_palavra(Tabela *t, const char *palavra) {
-    size_t indice = funcao_hash(palavra) % t->capacidade;
-    Entrada *atual = t->baldes[indice];
+No *buscar(TabelaHash *t, int chave) {
+    No *atual = t->posicoes[hash(chave)];
     while (atual != NULL) {
-        if (strcmp(atual->chave, palavra) == 0) return 1;
+        if (atual->chave == chave)
+            return atual;
         atual = atual->prox;
     }
-    return 0;
+    return NULL;
 }
 
-void redimensionar(Tabela *t) {
-    size_t nova_cap = proximo_primo(t->capacidade * 2 + 1);
-    Entrada **novos = (Entrada **)calloc(nova_cap, sizeof(Entrada *));
-    if (novos == NULL) {
-        fprintf(stderr, "Erro: memoria insuficiente.\n");
-        exit(EXIT_FAILURE);
+int inserir(TabelaHash *t, int chave) {
+    if (buscar(t, chave) != NULL)
+        return 0; /* chave repetida */
+
+    int pos = hash(chave);
+    No *novo = (No *) malloc(sizeof(No));
+    if (novo == NULL) {
+        printf("Erro: memoria insuficiente!\n");
+        exit(1);
     }
-    for (size_t i = 0; i < t->capacidade; i++) {
-        Entrada *atual = t->baldes[i];
-        while (atual != NULL) {
-            Entrada *proxima = atual->prox;          
-            size_t idx = funcao_hash(atual->chave) % nova_cap;
-            atual->prox = novos[idx];               
-            novos[idx] = atual;
-            atual = proxima;
-        }
-    }
-    free(t->baldes);
-    t->baldes = novos;
-    t->capacidade = nova_cap;
-}
-
-int inserir(Tabela *t, const char *palavra) {
-    if (buscar_palavra(t, palavra)) return 0;
-
-    if ((double)(t->tamanho + 1) / (double)t->capacidade > FATOR_CARGA_MAX)
-        redimensionar(t);
-
-    size_t indice = funcao_hash(palavra) % t->capacidade;
-    Entrada *nova = criar_entrada(palavra);
-    nova->prox = t->baldes[indice];
-    t->baldes[indice] = nova;
-    t->tamanho++;
+    novo->chave = chave;
+    novo->prox = t->posicoes[pos]; 
+    t->posicoes[pos] = novo;       
+    t->qtd++;
     return 1;
 }
 
-int remover_palavra(Tabela *t, const char *palavra) {
-    size_t indice = funcao_hash(palavra) % t->capacidade;
-    Entrada *atual = t->baldes[indice];
-    Entrada *anterior = NULL;
+int remover(TabelaHash *t, int chave) {
+    int pos = hash(chave);
+    No *atual = t->posicoes[pos];
+    No *anterior = NULL;
 
-    while (atual != NULL) {
-        if (strcmp(atual->chave, palavra) == 0) {
-            if (anterior == NULL) t->baldes[indice] = atual->prox;
-            else anterior->prox = atual->prox;
-            free(atual->chave);
-            free(atual);
-            t->tamanho--;
-            return 1;
-        }
+    while (atual != NULL && atual->chave != chave) {
         anterior = atual;
         atual = atual->prox;
     }
-    return 0;
+
+    if (atual == NULL)
+        return 0; 
+
+    if (anterior == NULL)
+        t->posicoes[pos] = atual->prox; 
+    else
+        anterior->prox = atual->prox;   
+
+    free(atual);
+    t->qtd--;
+    return 1;
 }
 
-void listar_todas(Tabela *t) {
-    for (size_t i = 0; i < t->capacidade; i++) {
-        Entrada *atual = t->baldes[i];
+void listar(TabelaHash *t) {
+    printf("\n---------------- CONTEUDO DA TABELA ----------------\n");
+    for (int i = 0; i < TAM; i++) {
+        printf("[%2d] ", i);
+        No *atual = t->posicoes[i];
+        if (atual == NULL)
+            printf("(vazio)");
         while (atual != NULL) {
-            printf("%s\n", atual->chave);
+            printf("%d", atual->chave);
+            if (atual->prox != NULL)
+                printf(" -> ");
             atual = atual->prox;
         }
+        printf("\n");
     }
+    printf("----------------------------------------------------\n");
 }
 
-void desenhar_tabela(Tabela *t) {
-    int mostrar_vazios = (t->capacidade <= 50);
-    for (size_t i = 0; i < t->capacidade; i++) {
-        Entrada *atual = t->baldes[i];
-        if (atual == NULL && !mostrar_vazios) continue;
-        printf("[%3zu] ", i);
+void estatisticas(TabelaHash *t) {
+    int ocupadas = 0, colisoes = 0, maiorLista = 0;
+
+    for (int i = 0; i < TAM; i++) {
+        int tamLista = 0;
+        for (No *p = t->posicoes[i]; p != NULL; p = p->prox)
+            tamLista++;
+
+        if (tamLista > 0) ocupadas++;
+        if (tamLista > 1) colisoes += tamLista - 1;
+        if (tamLista > maiorLista) maiorLista = tamLista;
+    }
+
+    printf("\n---------------- ESTATISTICAS ----------------\n");
+    printf("Tamanho da tabela .............. %d\n", TAM);
+    printf("Elementos armazenados .......... %d\n", t->qtd);
+    printf("Posicoes ocupadas .............. %d\n", ocupadas);
+    printf("Posicoes vazias ................ %d\n", TAM - ocupadas);
+    printf("Fator de carga ................. %.2f\n", (float) t->qtd / TAM);
+    printf("Colisoes ....................... %d\n", colisoes);
+    printf("Maior lista (pior caso de busca) %d\n", maiorLista);
+    if (ocupadas > 0)
+        printf("Media de elementos por lista ... %.2f (considerando so as ocupadas)\n",
+               (float) t->qtd / ocupadas);
+    printf("----------------------------------------------\n");
+}
+
+
+void destruir(TabelaHash *t) {
+    for (int i = 0; i < TAM; i++) {
+        No *atual = t->posicoes[i];
         while (atual != NULL) {
-            printf("%s -> ", atual->chave);
+            No *temp = atual;
             atual = atual->prox;
+            free(temp);
         }
-        printf("NULL\n");
+        t->posicoes[i] = NULL;
     }
-    if (!mostrar_vazios)
-        printf("(baldes vazios omitidos)\n");
-}
-
-void mostrar_estatisticas(Tabela *t) {
-    size_t usados = 0, maior_cadeia = 0;
-    for (size_t i = 0; i < t->capacidade; i++) {
-        size_t tamanho_cadeia = 0;
-        for (Entrada *e = t->baldes[i]; e != NULL; e = e->prox) tamanho_cadeia++;
-        if (tamanho_cadeia > 0) usados++;
-        if (tamanho_cadeia > maior_cadeia) maior_cadeia = tamanho_cadeia;
-    }
-    printf("Capacidade (baldes)    : %zu\n", t->capacidade);
-    printf("Palavras armazenadas   : %zu\n", t->tamanho);
-    printf("Baldes ocupados        : %zu\n", usados);
-    printf("Colisoes               : %zu\n", t->tamanho - usados);
-    printf("Maior cadeia           : %zu\n", maior_cadeia);
-    printf("Fator de carga         : %.2f (limite %.2f)\n",
-           (double)t->tamanho / (double)t->capacidade, FATOR_CARGA_MAX);
-}
-
-void liberar_tabela(Tabela *t) {
-    if (t == NULL) return;
-    for (size_t i = 0; i < t->capacidade; i++) {
-        Entrada *atual = t->baldes[i];
-        while (atual != NULL) {
-            Entrada *proxima = atual->prox;
-            free(atual->chave);
-            free(atual);
-            atual = proxima;
-        }
-    }
-    free(t->baldes);
-    free(t);
+    t->qtd = 0;
 }
 
 
-void ler_palavra(char *destino, size_t tamanho, const char *mensagem) {
+int lerInteiro(const char *mensagem) {
+    int valor;
     printf("%s", mensagem);
-    if (fgets(destino, (int)tamanho, stdin) == NULL) {
-        destino[0] = '\0';
-        return;
+    while (scanf("%d", &valor) != 1) {
+        while (getchar() != '\n'); 
+        printf("Entrada invalida! %s", mensagem);
     }
-    destino[strcspn(destino, "\r\n")] = '\0';
-    normalizar(destino);
+    return valor;
 }
+
 
 int main(void) {
-    Tabela *tabela = criar_tabela(CAPACIDADE_INICIAL);
-    char palavra[TAM_PALAVRA], linha[32];
-    int opcao;
+    TabelaHash tabela;
+    inicializar(&tabela);
+
+    int opcao, chave;
 
     do {
-        printf("\n========== TABELA HASH ==========\n");
-        printf("1 - Inserir palavra\n");
-        printf("2 - Buscar palavra\n");
-        printf("3 - Remover palavra\n");
-        printf("4 - Listar todas as palavras\n");
-        printf("5 - Desenhar a tabela\n");
-        printf("6 - Estatisticas (colisoes, carga)\n");
-        printf("7 - Teste de estresse (inserir 50 palavras)\n");
-        printf("0 - Sair\n");
-        printf("Escolha uma opcao: ");
-
-        if (fgets(linha, sizeof(linha), stdin) == NULL) break;
-        if (sscanf(linha, "%d", &opcao) != 1) {
-            printf("Opcao invalida. Digite um numero do menu.\n");
-            continue;
-        }
+        printf("\n=======================>    TABELA HASH    <=======================\n");
+        printf("Selecione uma opcao (digite apenas o valor inteiro):\n");
+        printf(">(0) Sair\n");
+        printf(">(1) Inserir\n");
+        printf(">(2) Remover\n");
+        printf(">(3) Buscar\n");
+        printf(">(4) Listar\n");
+        printf(">(5) Estatisticas\n");
+        opcao = lerInteiro("Opcao: ");
 
         switch (opcao) {
-            case 1:
-                ler_palavra(palavra, sizeof(palavra), "Digite a palavra: ");
-                if (palavra[0] == '\0') printf("Palavra vazia nao pode ser inserida.\n");
-                else if (inserir(tabela, palavra)) printf("Palavra inserida com sucesso.\n");
-                else printf("Essa palavra ja existe na tabela.\n");
-                break;
-
-            case 2:
-                ler_palavra(palavra, sizeof(palavra), "Digite a palavra que deseja buscar: ");
-                if (buscar_palavra(tabela, palavra)) printf("Palavra encontrada!\n");
-                else printf("Palavra nao encontrada.\n");
-                break;
-
-            case 3:
-                ler_palavra(palavra, sizeof(palavra), "Digite a palavra que deseja remover: ");
-                if (remover_palavra(tabela, palavra)) printf("Palavra removida com sucesso.\n");
-                else printf("Essa palavra nao existe na tabela.\n");
-                break;
-
-            case 4:
-                printf("Palavras armazenadas:\n");
-                if (tabela->tamanho == 0) printf("(tabela vazia)\n");
-                else listar_todas(tabela);
-                break;
-
-            case 5:
-                printf("Representacao da tabela (cada [i] e um balde):\n");
-                desenhar_tabela(tabela);
-                break;
-
-            case 6:
-                mostrar_estatisticas(tabela);
-                break;
-
-            case 7:
-                for (int i = 0; i < 50; i++) {
-                    char gerada[32];
-                    sprintf(gerada, "palavra%d", i);
-                    inserir(tabela, gerada);
-                }
-                printf("50 palavras inseridas. Veja a opcao 6 para as estatisticas.\n");
-                break;
-
             case 0:
                 printf("Encerrando o programa...\n");
                 break;
 
+            case 1:
+                chave = lerInteiro("Digite a chave a ser inserida: ");
+                if (inserir(&tabela, chave))
+                    printf("Chave %d inserida na posicao [%d].\n", chave, hash(chave));
+                else
+                    printf("A chave %d ja existe na tabela!\n", chave);
+                break;
+
+            case 2:
+                chave = lerInteiro("Digite a chave a ser removida: ");
+                if (remover(&tabela, chave))
+                    printf("Chave %d removida com sucesso.\n", chave);
+                else
+                    printf("Chave %d nao encontrada!\n", chave);
+                break;
+
+            case 3:
+                chave = lerInteiro("Digite a chave a ser buscada: ");
+                if (buscar(&tabela, chave) != NULL)
+                    printf("Chave %d encontrada na posicao [%d].\n", chave, hash(chave));
+                else
+                    printf("Chave %d nao encontrada!\n", chave);
+                break;
+
+            case 4:
+                listar(&tabela);
+                break;
+
+            case 5:
+                estatisticas(&tabela);
+                break;
+
             default:
-                printf("Opcao invalida.\n");
+                printf("Opcao invalida! Tente novamente.\n");
         }
     } while (opcao != 0);
 
-    liberar_tabela(tabela);
+    destruir(&tabela);
     return 0;
 }
